@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>原生侧滑返回测试页面｜唤起APP链接</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, sans-serif;
+        }
+        body {
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        h2 {
+            margin-bottom: 16px;
+            color: #222;
+        }
+        .link-group a {
+            display: block;
+            padding: 12px 16px;
+            margin: 8px 0;
+            background: #fff;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #0066cc;
+            box-shadow: 0 1px 3px #00000015;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            background: #2563eb;
+            color: white;
+        }
+        .tip {
+            color:#666;
+            font-size:13px;
+            margin:6px 0 16px;
+        }
+        #testImg {
+            max-width: 100%;
+            border-radius: 8px;
+            margin:12px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 页面A：首页，仅保留push按钮 -->
+    <div id="pageA" class="page active">
+        <h2>首页</h2>
+        <div class="tip">点击下方按钮进入页面B，测试手机原生侧滑返回手势</div>
+        <button id="goPageB">进入页面B</button>
+    </div>
+
+    <!-- 页面B：全部测试功能放这里 -->
+    <div id="pageB" class="page">
+        <h2>页面B</h2>
+        <div class="tip">✅ 在此页面测试：侧滑返回、App唤起链接、相机、相册、本地test图片</div>
+
+
+        <div class="link-group">
+            <a href="https://line.me/R/" target="_blank">唤起LINE</a>
+            <a href="https://wa.me/?text=hello" target="_blank">唤起WhatsApp</a>
+            <a href="https://wa.me/?text=hello" target="_blank">唤起WhatsApp</a>
+            <a href="https://t.me" target="_blank">唤起Telegram</a>
+            <a href="https://zalo.me" target="_blank">唤起Zalo</a>
+        </div>
+
+        <div>
+            <button id="openCameraBtn">📷 打开手机相机</button>
+            <button id="openAlbumBtn">🖼️ 打开手机相册</button>
+            <img id="previewImg" style="max-width:100%;display:none;margin-top:10px;" alt="预览">
+        </div>
+        
+        <h3>图片：</h3>
+        <img id="testImg" src="./test.jpg" alt="test图片">
+            
+    </div>
+
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+const pageA = document.getElementById('pageA');
+const pageB = document.getElementById('pageB');
+
+// 点击按钮 pushState，切换到页面B
+document.getElementById('goPageB').onclick = ()=>{
+    history.pushState({page:'B'}, '', '#pageB');
+    renderPage('B');
+};
+
+// 浏览器返回事件（popstate）
+window.addEventListener('popstate', (e)=>{
+    if (!e.state || e.state.page === 'A') {
+        renderPage('A');
+    } else if(e.state.page === 'B'){
+        renderPage('B');
+    }
+});
+
+function renderPage(pageName){
+    pageA.classList.remove('active');
+    pageB.classList.remove('active');
+    if(pageName === 'A'){
+        pageA.classList.add('active');
+    }else{
+        pageB.classList.add('active');
+    }
+}
+
+// 相机相册公共逻辑
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const previewImg = document.getElementById('previewImg');
+
+function startCamera(targetPreview){
+    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+        navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+        .then(stream=>{
+            video.srcObject = stream;
+            video.onloadedmetadata = ()=>{
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video,0,0);
+                const imgUrl = canvas.toDataURL('image/png');
+                targetPreview.src = imgUrl;
+                targetPreview.style.display='block';
+                stream.getTracks().forEach(t=>t.stop());
+            }
+        }).catch(err=>{
+            alert("相机权限失败，HTTPS环境才能正常调用："+err.message);
+        })
+    }else{
+        alert("浏览器不支持相机");
+    }
+}
+
+function openAlbum(targetPreview){
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = e=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = res=>{
+            targetPreview.src = res.target.result;
+            targetPreview.style.display='block';
+        }
+        reader.readAsDataURL(file);
+    }
+    input.click();
+}
+
+document.getElementById('openCameraBtn').onclick = ()=> startCamera(previewImg);
+document.getElementById('openAlbumBtn').onclick = ()=> openAlbum(previewImg);
+</script>
+</body>
+</html>
